@@ -1,0 +1,133 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  Name:
+    Type: String
+    Default: use-lambda-proxy-integration-demo
+
+Resources:
+    ##   #####  #     ####    ##   ##### ###### #    #   ##   #   #
+   #  #  #    # #    #    #  #  #    #   #      #    #  #  #   # #
+  #    # #    # #    #      #    #   #   #####  #    # #    #   #
+  ###### #####  #    #  ### ######   #   #      # ## # ######   #
+  #    # #      #    #    # #    #   #   #      ##  ## #    #   #
+  #    # #      #     ####  #    #   #   ###### #    # #    #   #
+  RestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Ref Name
+  UseLambdaProxyMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      HttpMethod: POST
+      ResourceId: !Ref UseLambdaProxyResource
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UseLambdaProxyFunction.Arn}/invocations
+        IntegrationHttpMethod: POST
+  UseLambdaProxyResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: use-lambda-proxy
+  UseLambdaProxyWithNumMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      HttpMethod: POST
+      ResourceId: !Ref UseLambdaProxyWithNumResource
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UseLambdaProxyWithNumFunction.Arn}/invocations
+        IntegrationHttpMethod: POST
+  UseLambdaProxyWithNumResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !Ref UseLambdaProxyResource
+      PathPart: '{num}'
+  UnuseLambdaProxyResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: unuse-lambda-proxy
+#  ApiGatewayDeployment:
+#    Type: AWS::ApiGateway::Deployment
+#    Properties:
+#      RestApiId: !Ref RestApi
+#    DependsOn:
+#    - UseLambdaProxyMethod
+#  ApiGatewayStage:
+#    Type: AWS::ApiGateway::Stage
+#    Properties:
+#      RestApiId: !Ref RestApi
+#      DeploymentId: !Ref ApiGatewayDeployment
+#      StageName: v1
+
+  #        ##   #    # #####  #####    ##
+  #       #  #  ##  ## #    # #    #  #  #
+  #      #    # # ## # #####  #    # #    #
+  #      ###### #    # #    # #    # ######
+  #      #    # #    # #    # #    # #    #
+  ###### #    # #    # #####  #####  #    #
+  UseLambdaProxyFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Code:
+        ZipFile: !Sub |
+          # coding: utf-8
+          import json
+          def handler(event, context):
+            print(json.dumps(event))
+            return { "statusCode": 200, "body": json.dumps({ "message": "Hello Use Lambda Proxy Integration!" }) }
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.7
+  UseLambdaProxyFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref UseLambdaProxyFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/POST/use-lambda-proxy"
+  UseLambdaProxyWithNumFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Code:
+        ZipFile: !Sub |
+          # coding: utf-8
+          import json
+          def handler(event, context):
+            print(json.dumps(event))
+            try:
+              return { "statusCode": 200, "body": json.dumps({ "message": int(event['pathParameters']['num']) * int(event['pathParameters']['num']) }) }
+            except Exception as e:
+              return { "statusCode": 500, "body": json.dumps({ "message": str(e) }) }
+      Role: !GetAtt LambdaRole.Arn
+      Runtime: python3.7
+  UseLambdaProxyWithNumFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref UseLambdaProxyWithNumFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/POST/use-lambda-proxy/{num}"
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
