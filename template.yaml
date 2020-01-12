@@ -42,7 +42,7 @@ Resources:
       AuthorizationType: NONE
       Integration:
         Type: AWS_PROXY
-        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UseLambdaProxyWithNumFunction.Arn}/invocations
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UseLambdaProxyFunction.Arn}/invocations
         IntegrationHttpMethod: POST
   UseLambdaProxyWithNumResource:
     Type: AWS::ApiGateway::Resource
@@ -56,18 +56,18 @@ Resources:
       RestApiId: !Ref RestApi
       ParentId: !GetAtt RestApi.RootResourceId
       PathPart: unuse-lambda-proxy
-#  ApiGatewayDeployment:
-#    Type: AWS::ApiGateway::Deployment
-#    Properties:
-#      RestApiId: !Ref RestApi
-#    DependsOn:
-#    - UseLambdaProxyMethod
-#  ApiGatewayStage:
-#    Type: AWS::ApiGateway::Stage
-#    Properties:
-#      RestApiId: !Ref RestApi
-#      DeploymentId: !Ref ApiGatewayDeployment
-#      StageName: v1
+  ApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref RestApi
+    DependsOn:
+    - UseLambdaProxyMethod
+  ApiGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref RestApi
+      DeploymentId: !Ref ApiGatewayDeployment
+      StageName: v1
 
   #        ##   #    # #####  #####    ##
   #       #  #  ##  ## #    # #    #  #  #
@@ -85,7 +85,12 @@ Resources:
           import json
           def handler(event, context):
             print(json.dumps(event))
-            return { "statusCode": 200, "body": json.dumps({ "message": "Hello Use Lambda Proxy Integration!" }) }
+            try:
+              if event.get("body") is not None:
+                print(json.dumps(json.loads(event.get("body"))))
+              return { "statusCode": 200, "body": json.dumps(event) }
+            except Exception as e:
+              return { "statusCode": 500, "body": json.dumps({ "message": str(e) }) }
       Role: !GetAtt LambdaRole.Arn
       Runtime: python3.7
   UseLambdaProxyFunctionPermission:
@@ -95,27 +100,11 @@ Resources:
       FunctionName: !Ref UseLambdaProxyFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/POST/use-lambda-proxy"
-  UseLambdaProxyWithNumFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      Handler: index.handler
-      Code:
-        ZipFile: !Sub |
-          # coding: utf-8
-          import json
-          def handler(event, context):
-            print(json.dumps(event))
-            try:
-              return { "statusCode": 200, "body": json.dumps({ "message": int(event['pathParameters']['num']) * int(event['pathParameters']['num']) }) }
-            except Exception as e:
-              return { "statusCode": 500, "body": json.dumps({ "message": str(e) }) }
-      Role: !GetAtt LambdaRole.Arn
-      Runtime: python3.7
   UseLambdaProxyWithNumFunctionPermission:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !Ref UseLambdaProxyWithNumFunction
+      FunctionName: !Ref UseLambdaProxyFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/POST/use-lambda-proxy/{num}"
 
