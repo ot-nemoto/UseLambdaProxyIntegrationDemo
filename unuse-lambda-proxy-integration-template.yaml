@@ -52,6 +52,16 @@ Resources:
                 #end
               },
               #end
+              #set($params = $allParams.get('path'))
+              #if($params.isEmpty())
+              "pathParameters" : null,
+              #else
+              "pathParameters" : {
+                #foreach($paramName in $params.keySet())
+                  "$paramName" : "$util.escapeJavaScript($params.get($paramName))" #if($foreach.hasNext),#end
+                #end
+              },
+              #end
               #if($input.body == {})
               "body" : null
               #else
@@ -73,9 +83,57 @@ Resources:
       ResourceId: !Ref WithRequestPathResource
       AuthorizationType: NONE
       Integration:
-        Type: AWS_PROXY
+        Type: AWS
         Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunction.Arn}/invocations
         IntegrationHttpMethod: POST
+        PassthroughBehavior: WHEN_NO_TEMPLATES
+        RequestTemplates:
+          application/json: |
+            #set($allParams = $input.params())
+            {
+              #set($params = $allParams.get('querystring'))
+              #if($params.isEmpty())
+              "queryStringParameters" : null,
+              #else
+              "queryStringParameters" : {
+                #foreach($paramName in $params.keySet())
+                  "$paramName" : "$util.escapeJavaScript($params.get($paramName))" #if($foreach.hasNext),#end
+                #end
+              },
+              #end
+              #set($params = $allParams.get('header'))
+              #if($params.isEmpty())
+              "headers" : null,
+              #else
+              "headers" : {
+                #foreach($paramName in $params.keySet())
+                  "$paramName" : "$util.escapeJavaScript($params.get($paramName))" #if($foreach.hasNext),#end
+                #end
+              },
+              #end
+              #set($params = $allParams.get('path'))
+              #if($params.isEmpty())
+              "pathParameters" : null,
+              #else
+              "pathParameters" : {
+                #foreach($paramName in $params.keySet())
+                  "$paramName" : "$util.escapeJavaScript($params.get($paramName))" #if($foreach.hasNext),#end
+                #end
+              },
+              #end
+              #if($input.body == {})
+              "body" : null
+              #else
+              "body" : "$util.escapeJavaScript($input.body)"
+              #end
+            }
+        IntegrationResponses:
+        - StatusCode: 200
+          ResponseTemplates:
+            application/json: |
+              $input.path('$.body')
+      MethodResponses:
+      - StatusCode: 200
   RootResource:
     Type: AWS::ApiGateway::Resource
     Properties:
