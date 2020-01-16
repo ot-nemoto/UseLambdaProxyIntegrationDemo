@@ -25,7 +25,7 @@ Resources:
       AuthorizationType: NONE
       Integration:
         Type: AWS
-        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ErrorHandlingFunction.Arn}/invocations
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ErrHandlerFunction.Arn}/invocations
         IntegrationHttpMethod: POST
         PassthroughBehavior: WHEN_NO_TEMPLATES
         RequestTemplates:
@@ -73,8 +73,14 @@ Resources:
           ResponseTemplates:
             application/json: |
               $input.path('$.body')
+        - StatusCode: 500
+          SelectionPattern: ".*message.*"
+          ResponseTemplates:
+            application/json: |
+              $input.path('$.errorMessage')
       MethodResponses:
       - StatusCode: 200
+      - StatusCode: 500
   WithRequestPathMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -84,7 +90,7 @@ Resources:
       AuthorizationType: NONE
       Integration:
         Type: AWS
-        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ErrorHandlingFunction.Arn}/invocations
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ErrHandlerFunction.Arn}/invocations
         IntegrationHttpMethod: POST
         PassthroughBehavior: WHEN_NO_TEMPLATES
         RequestTemplates:
@@ -132,8 +138,14 @@ Resources:
           ResponseTemplates:
             application/json: |
               $input.path('$.body')
+        - StatusCode: 500
+          SelectionPattern: ".*message.*"
+          ResponseTemplates:
+            application/json: |
+              $input.path('$.errorMessage')
       MethodResponses:
       - StatusCode: 200
+      - StatusCode: 500
   RootResource:
     Type: AWS::ApiGateway::Resource
     Properties:
@@ -184,7 +196,7 @@ Resources:
               return { "statusCode": 500, "body": json.dumps({ "message": str(e) }) }
       Role: !GetAtt LambdaRole.Arn
       Runtime: python3.7
-  ErrorHandlingFunction:
+  ErrHandlerFunction:
     Type: AWS::Lambda::Function
     Properties:
       Handler: index.handler
@@ -201,24 +213,24 @@ Resources:
               InvocationType = 'RequestResponse',
               Payload = json.dumps(event).encode()
             )
-            payload = response['Payload'].read().decode('utf-8')
-            print(payload)
-            body = json.loads(payload)
-            return body if (body['statusCode'] == 200) else body
-      Role: !GetAtt ErrorHandlingRole.Arn
+            payload = json.loads(response['Payload'].read().decode('utf-8'))
+            if (payload['statusCode'] == 500):
+              raise Exception(payload['body'])
+            return payload
+      Role: !GetAtt ErrHandlerRole.Arn
       Runtime: python3.7
   RootMethodPermission:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !Ref ErrorHandlingFunction
+      FunctionName: !Ref ErrHandlerFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/POST/example"
   WithRequestPathMethodPermission:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !Ref ErrorHandlingFunction
+      FunctionName: !Ref ErrHandlerFunction
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/*/POST/example/{val}"
 
@@ -234,7 +246,7 @@ Resources:
           Action: sts:AssumeRole
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-  ErrorHandlingRole:
+  ErrHandlerRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
