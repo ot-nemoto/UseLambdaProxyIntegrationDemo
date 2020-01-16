@@ -6,6 +6,8 @@
 
 ## デプロイ
 
+### use-lambda-proxy-integration-demo
+
 - Lambdaプロキシ統合を使いAPI GatewayとLambdaを連携させる構成の構築
 
 ![use-lambda-proxy-integration-demo](https://github.com/ot-nemoto/UseLambdaProxyIntegrationDemo/blob/images/UseLambdaProxyIntegrationDemo-use-lambda-proxy-integration-demo.png)
@@ -16,6 +18,8 @@ aws cloudformation create-stack \
     --capabilities CAPABILITY_NAMED_IAM \
     --template-body file://use-lambda-proxy-integration-template.yaml
 ```
+
+### unuse-lambda-proxy-integration-demo
 
 - Lambdaプロキシ統合に合わせたLambdaに対して、Lambdaプロキシ統合を使わずAPI GatewayとLambdaを連携させる構成の構築
 - エラー時ののハンドリングには未対応
@@ -28,6 +32,8 @@ aws cloudformation create-stack \
     --capabilities CAPABILITY_NAMED_IAM \
     --template-body file://unuse-lambda-proxy-integration-template.yaml
 ```
+
+### unuse-lambda-proxy-integration-ex-demo
 
 - Lambdaプロキシ統合に合わせたLambdaに対して、Lambdaプロキシ統合を使わずAPI GatewayとLambdaを連携させる構成の構築
 - エラー時のハンドリングにも対応
